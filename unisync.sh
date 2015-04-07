@@ -53,3 +53,5 @@ for SUBDIR in ${@}; do
   unison ${UNISON_OPTS} "${LOCAL_SUBDIR_PATH}" "${REMOTE_SUBDIR_PATH}"
   echo
 done
+
+read -n1 -r -p "Press any key to continue..." key
