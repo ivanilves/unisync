@@ -13,19 +13,19 @@ function separator() {
   echo "--------------------------------------------------------------------------------"
 }
 
-if [ ${#} -lt 2 ]; then
-  suicide "Usage: $(basename ${0}) CONFIG_FILE SUBDIR1 [SUBDIR2 ... SUBDIRn]"
-fi
-
-CONFIG_FILE="${1}"; shift
-if [ -f  "${CONFIG_FILE}" ]; then
-  . "${CONFIG_FILE}"
-else
-  suicide "Unable to open config: ${CONFIG_FILE}"
-fi
-
 if [ ! $(which unison) ]; then
   suicide "Unison executable not found :("
+fi
+
+CONFIG_FILE="${HOME}/.unisync.config"
+if [ ! -f  "${CONFIG_FILE}" ]; then
+  suicide "Unable to open config: ${CONFIG_FILE}"
+fi
+. "${CONFIG_FILE}"
+
+if [ "$(echo ${1} | egrep "^(--help|-h)$")" ]; then
+  echo "Usage: $(basename ${0}) [SUBDIR1 SUBDIR2 ... SUBDIRn]"
+  exit 0
 fi
 
 LOCAL_IP_ADDRESSES=$(ip addr | egrep "^\s*inet6? " | awk '{print $2}')
@@ -37,21 +37,27 @@ else
   REMOTE_PORT=${WAN_PORT}
 fi
 
+BATCH_MODE=0
+if [ ${#} -gt 0 ]; then
+  SYNC_SUBDIRS=${@}
+  BATCH_MODE=1
+fi
+
 echo
 echo "[ ${REMOTE_ADDRESS}:${REMOTE_PORT} ]"
 echo
-for SUBDIR in ${@}; do
-  SUBDIR_PATH="${HOME}/${SUBDIR}"
-  LOCAL_SUBDIR_PATH="file:///${SUBDIR_PATH}"
-  REMOTE_SUBDIR_PATH="ssh://${USER}@${REMOTE_ADDRESS}/${SUBDIR_PATH}"
+for SYNC_SUBDIR in ${SYNC_SUBDIRS}; do
+  SYNC_SUBDIR_PATH="${SYNC_ROOT}/${SYNC_SUBDIR}"
+  LOCAL_SUBDIR_PATH="file:///${SYNC_SUBDIR_PATH}"
+  REMOTE_SUBDIR_PATH="ssh://${USER}@${REMOTE_ADDRESS}/${SYNC_SUBDIR_PATH}"
   UNISON_OPTS="-batch -terse -owner -group -times -links true -sshargs -oPort=${REMOTE_PORT}"
 
   separator
-  echo "* Syncing: ${SUBDIR_PATH}"
+  echo "* Syncing: ${SYNC_SUBDIR_PATH}"
   separator
 
   unison ${UNISON_OPTS} "${LOCAL_SUBDIR_PATH}" "${REMOTE_SUBDIR_PATH}"
   echo
 done
 
-read -n1 -r -p "Press any key to continue..." key
+test ${BATCH_MODE} -eq 0 && read -n1 -r -p "Press any key to continue..."
